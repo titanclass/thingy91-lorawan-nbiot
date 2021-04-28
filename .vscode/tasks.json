@@ -13,9 +13,7 @@
             "type": "process",
             "command": "cargo",
             "args": [
-                "build",
-                "--target",
-                "thumbv8m.main-none-eabi"
+                "build"
             ],
             "problemMatcher": [
                 "$rustc"
@@ -31,8 +29,6 @@
             "command": "cargo",
             "args": [
                 "build",
-                "--target",
-                "thumbv8m.main-none-eabi",
                 "--release"
             ],
             "problemMatcher": [
