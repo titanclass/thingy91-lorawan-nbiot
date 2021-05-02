@@ -1,5 +1,6 @@
 **/*.rs.bk
 .#*
+.DS_Store
 .gdb_history
 Cargo.lock
 target/

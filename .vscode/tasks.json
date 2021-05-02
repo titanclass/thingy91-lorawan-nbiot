@@ -15,6 +15,9 @@
             "args": [
                 "build"
             ],
+            "options": {
+                "cwd": "app"
+            },
             "problemMatcher": [
                 "$rustc"
             ],
@@ -31,6 +34,9 @@
                 "build",
                 "--release"
             ],
+            "options": {
+                "cwd": "app"
+            },
             "problemMatcher": [
                 "$rustc"
             ],
@@ -43,6 +49,9 @@
             "args": [
                 "clean"
             ],
+            "options": {
+                "cwd": "app"
+            },
             "problemMatcher": [],
             "group": "build"
         },

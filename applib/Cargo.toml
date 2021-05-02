@@ -1,0 +1,8 @@
+[package]
+authors = ["huntc <huntchr@gmail.com>"]
+edition = "2018"
+readme = "README.md"
+name = "applib"
+version = "0.1.0"
+
+[dependencies]
