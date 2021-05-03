@@ -2,7 +2,15 @@
 
 use lorawan_encoding::keys;
 
-/// Return a LoRaWAN data-up-confirmed payload
+/// Return a LoRaWAN data-up-confirmed payload We'll lay the packet out
+// as follows, and using an FPort of 1:
+///
+/// Start |   End | Description
+///     0 |     1 | Temperature (C) * 100
+///     2 |     5 | Pressure (hPA) * 100
+///     6 |     9 | Humidity (%) * 1000
+///    10 |    13 | Gas Resistence
+///
 /// ```
 /// use applib::EnvironmentalPayload;
 /// let bytes = applib::data_up_unconfirmed(0, 0, &EnvironmentalPayload { temperature: 0, pressure: 1, humidity: 2, gas_resistance: 3 }, 0_u128, 0_u128);

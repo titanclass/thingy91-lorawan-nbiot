@@ -3,6 +3,7 @@
 
 use bsp::hal::{twim, Delay, Twim};
 
+use embedded_hal::prelude::_embedded_hal_blocking_delay_DelayMs;
 // pick a panicking behavior
 #[cfg(debug_assertions)]
 use panic_halt as _;
@@ -31,13 +32,24 @@ const NET_ID: u32 = 0x13_u32;
 const NWK_SKEY: &'static str = "EE508F76B0492985BFACBACE0B2754C2";
 const APP_SKEY: &'static str = "BA357A0A743BD19BD4509B9667C87658";
 
+// FIXME: Replace with how often you would like environmental telemetry to be sent.
+const SEND_FREQUENCY_MS: u32 = 60 * 60 * 1000; // 1 hour
+
 #[entry]
 fn main() -> ! {
-    // FIXME: Take care of the unwrap() calls
-
     // Initialize device
 
-    let board = bsp::Board::take().unwrap();
+    let mut board = bsp::Board::take().unwrap();
+
+    // Setup LoRaWAN info
+
+    let dev_eui = "923453256784434561".parse::<u64>().unwrap(); // FIXME: use ICCID returned via modem - "AT+ICCID" ???
+    let dev_addr = nwk_addr(dev_eui, NET_ID);
+
+    let nwk_skey = u128::from_str_radix(NWK_SKEY, 16).unwrap();
+    let app_skey = u128::from_str_radix(APP_SKEY, 16).unwrap();
+
+    // Setup the environmental sensor
 
     let scl = board.pins.P0_12.degrade();
     let sda = board.pins.P0_11.degrade();
@@ -46,9 +58,9 @@ fn main() -> ! {
 
     let i2c = Twim::new(board.TWIM0_NS, pins, twim::Frequency::K400);
 
-    let delayer = Delay::new(board.SYST);
+    let mut delayer = Delay::new(board.SYST);
 
-    let mut dev = Bme680::init(i2c, delayer, I2CAddress::Primary).unwrap();
+    let mut dev = Bme680::init(i2c, &mut delayer, I2CAddress::Primary).unwrap();
     let settings = SettingsBuilder::new()
         .with_humidity_oversampling(OversamplingSetting::OS2x)
         .with_pressure_oversampling(OversamplingSetting::OS4x)
@@ -57,42 +69,48 @@ fn main() -> ! {
         .with_gas_measurement(Duration::from_millis(1500), 320, 25)
         .with_run_gas(true)
         .build();
-    dev.set_sensor_settings(settings).unwrap();
+    dev.set_sensor_settings(&mut delayer, settings).unwrap();
+    dev.set_sensor_mode(&mut delayer, PowerMode::ForcedMode)
+        .unwrap();
 
-    // Read sensor data
-    dev.set_sensor_mode(PowerMode::ForcedMode).unwrap();
-    let (data, _state) = dev.get_sensor_data().unwrap();
+    // Our main loop where we read our sensors, send data and then sleep
 
-    println!("Temperature {}°C", data.temperature_celsius());
-    println!("Pressure {}hPa", data.pressure_hpa());
-    println!("Humidity {}%", data.humidity_percent());
-    println!("Gas Resistence {}Ω", data.gas_resistance_ohm());
+    let mut fcnt = 0; // frame counter for LoRaWAN
 
-    // Construct a LoRaWAN packet from the data. We'll lay the packet out
-    // as follows, and using an FPort of 1:
-    //
-    // Start |   End | Description
-    //     0 |     1 | Temperature (C) * 100
-    //     2 |     5 | Pressure (hPA) * 100
-    //     6 |     9 | Humidity (%) * 1000
-    //    10 |    13 | Gas Resistence
+    loop {
+        // Show we're doing something
 
-    let payload = EnvironmentalPayload {
-        temperature: unsafe { (data.temperature_celsius() * 100f32).to_int_unchecked() },
-        pressure: unsafe { (data.pressure_hpa() * 100f32).to_int_unchecked() },
-        humidity: unsafe { (data.humidity_percent() * 1000f32).to_int_unchecked() },
-        gas_resistance: data.gas_resistance_ohm(),
-    };
+        board.leds.led_1.enable();
 
-    let dev_eui = "923453256784434561".parse::<u64>().unwrap(); // FIXME: use ICCID returned via modem - "AT+ICCID" ???
-    let dev_addr = nwk_addr(dev_eui, NET_ID);
+        // Read  data from the environmental sensor
 
-    let nwk_skey = u128::from_str_radix(NWK_SKEY, 16).unwrap();
-    let app_skey = u128::from_str_radix(APP_SKEY, 16).unwrap();
+        let (data, _) = dev.get_sensor_data(&mut delayer).unwrap();
+        println!("Temperature {}°C", data.temperature_celsius());
+        println!("Pressure {}hPa", data.pressure_hpa());
+        println!("Humidity {}%", data.humidity_percent());
+        println!("Gas Resistence {}Ω", data.gas_resistance_ohm());
 
-    let _payload_bytes = data_up_unconfirmed(dev_addr, 0, &payload, nwk_skey, app_skey);
+        // Construct a LoRaWAN packet from the data.
 
-    loop {}
+        let payload = EnvironmentalPayload {
+            temperature: unsafe { (data.temperature_celsius() * 100f32).to_int_unchecked() },
+            pressure: unsafe { (data.pressure_hpa() * 100f32).to_int_unchecked() },
+            humidity: unsafe { (data.humidity_percent() * 1000f32).to_int_unchecked() },
+            gas_resistance: data.gas_resistance_ohm(),
+        };
+
+        let _payload_bytes = data_up_unconfirmed(dev_addr, fcnt, &payload, nwk_skey, app_skey);
+
+        // FIXME: Send the data
+
+        fcnt += 1;
+
+        // All done. Time to sleep.
+
+        board.leds.led_1.disable();
+
+        delayer.delay_ms(SEND_FREQUENCY_MS); // We can do better by using a periodic timer as it'll take a few seconds to the above
+    }
 }
 
 /// A UART we can access from anywhere (with run-time lock checking).

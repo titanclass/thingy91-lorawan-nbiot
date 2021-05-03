@@ -6,7 +6,7 @@ name = "thingy52-lorawan-nbiot"
 version = "0.1.0"
 
 [dependencies]
-bme680 = "0.5.1"
+bme680 = { git = "https://github.com/huntc/bme680.git", branch = "pass-delay" }
 cortex-m = "0.6.0"
 cortex-m-rt = "0.6.10"
 embedded-hal = { version = "0.2.4", features = [ "unproven" ] }
