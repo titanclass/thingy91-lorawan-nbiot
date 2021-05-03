@@ -21,27 +21,6 @@ use core::time::Duration;
 
 use applib::*;
 
-// The payload to convey over LoRaWAN
-#[repr(C)]
-struct LoRaWANPayload {
-    temperature: i16,
-    pressure: u32,
-    humidity: u32,
-    gas_resistance: u32,
-}
-
-impl LoRaWANPayload {
-    fn as_bytes(&self) -> &[u8] {
-        // This is actually safe given the underlying fields we're slicing
-        unsafe {
-            core::slice::from_raw_parts(
-                &self as *const _ as *const u8,
-                core::mem::size_of::<LoRaWANPayload>(),
-            )
-        }
-    }
-}
-
 // FIXME: Select a Network ID that your LoRaWAN Network Server accepts connections for
 const NET_ID: u32 = 0x13_u32;
 
@@ -98,7 +77,6 @@ fn main() -> ! {
     //     6 |     9 | Humidity (%) * 1000
     //    10 |    13 | Gas Resistence
 
-    let mut phy = lorawan_encoding::creator::DataPayloadCreator::new();
     let dev_eui = "923453256784434561".parse::<u64>().unwrap(); // FIXME: use ICCID returned via modem - "AT+ICCID" ???
     let dev_addr = nwk_addr(dev_eui, NET_ID);
 
@@ -114,13 +92,14 @@ fn main() -> ! {
     let app_skey =
         lorawan_encoding::keys::AES128(u128::from_str_radix(APP_SKEY, 16).unwrap().to_le_bytes());
 
+    let mut phy = lorawan_encoding::creator::DataPayloadCreator::new();
     phy.set_confirmed(false)
         .set_uplink(true)
         .set_f_port(1)
         .set_dev_addr(&dev_addr.to_le_bytes())
         .set_fcnt(0); // FIXME: Update the fcnt
     let _payload_bytes = phy
-        .build(payload.as_bytes(), &[], &nwk_skey, &app_skey)
+        .build(&payload.as_be_bytes(), &[], &nwk_skey, &app_skey)
         .unwrap();
 
     loop {}
