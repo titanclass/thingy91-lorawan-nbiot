@@ -77,30 +77,20 @@ fn main() -> ! {
     //     6 |     9 | Humidity (%) * 1000
     //    10 |    13 | Gas Resistence
 
-    let dev_eui = "923453256784434561".parse::<u64>().unwrap(); // FIXME: use ICCID returned via modem - "AT+ICCID" ???
-    let dev_addr = nwk_addr(dev_eui, NET_ID);
-
-    let payload = LoRaWANPayload {
+    let payload = EnvironmentalPayload {
         temperature: unsafe { (data.temperature_celsius() * 100f32).to_int_unchecked() },
         pressure: unsafe { (data.pressure_hpa() * 100f32).to_int_unchecked() },
         humidity: unsafe { (data.humidity_percent() * 1000f32).to_int_unchecked() },
         gas_resistance: data.gas_resistance_ohm(),
     };
 
-    let nwk_skey =
-        lorawan_encoding::keys::AES128(u128::from_str_radix(NWK_SKEY, 16).unwrap().to_le_bytes());
-    let app_skey =
-        lorawan_encoding::keys::AES128(u128::from_str_radix(APP_SKEY, 16).unwrap().to_le_bytes());
+    let dev_eui = "923453256784434561".parse::<u64>().unwrap(); // FIXME: use ICCID returned via modem - "AT+ICCID" ???
+    let dev_addr = nwk_addr(dev_eui, NET_ID);
 
-    let mut phy = lorawan_encoding::creator::DataPayloadCreator::new();
-    phy.set_confirmed(false)
-        .set_uplink(true)
-        .set_f_port(1)
-        .set_dev_addr(&dev_addr.to_le_bytes())
-        .set_fcnt(0); // FIXME: Update the fcnt
-    let _payload_bytes = phy
-        .build(&payload.as_be_bytes(), &[], &nwk_skey, &app_skey)
-        .unwrap();
+    let nwk_skey = u128::from_str_radix(NWK_SKEY, 16).unwrap();
+    let app_skey = u128::from_str_radix(APP_SKEY, 16).unwrap();
+
+    let _payload_bytes = data_up_unconfirmed(dev_addr, 0, &payload, nwk_skey, app_skey);
 
     loop {}
 }

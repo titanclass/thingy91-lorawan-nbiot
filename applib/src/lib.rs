@@ -1,21 +1,54 @@
 #![cfg_attr(not(test), no_std)]
 
+use lorawan_encoding::keys;
+
+/// Return a LoRaWAN data-up-confirmed payload
+/// ```
+/// use applib::EnvironmentalPayload;
+/// let bytes = applib::data_up_unconfirmed(0, 0, &EnvironmentalPayload { temperature: 0, pressure: 1, humidity: 2, gas_resistance: 3 }, 0_u128, 0_u128);
+/// ```
+pub fn data_up_unconfirmed<'a>(
+    dev_addr: u32,
+    fcnt: u32,
+    payload: &EnvironmentalPayload,
+    nwk_skey: u128,
+    app_skey: u128,
+) -> [u8; 27] {
+    let mut phy = lorawan_encoding::creator::DataPayloadCreator::new();
+    phy.set_confirmed(false)
+        .set_uplink(true)
+        .set_f_port(1)
+        .set_dev_addr(&dev_addr.to_le_bytes())
+        .set_fcnt(fcnt);
+    let bytes_ref = phy
+        .build(
+            &payload.to_be_bytes(),
+            &[],
+            &keys::AES128(nwk_skey.to_le_bytes()),
+            &keys::AES128(app_skey.to_le_bytes()),
+        )
+        .unwrap();
+    let mut bytes = [0_u8; 27];
+    bytes.copy_from_slice(&bytes_ref);
+    bytes
+}
+
 /// The payload to convey over LoRaWAN
-pub struct LoRaWANPayload {
+pub struct EnvironmentalPayload {
     pub temperature: i16,
     pub pressure: u32,
     pub humidity: u32,
     pub gas_resistance: u32,
 }
 
-impl LoRaWANPayload {
+impl EnvironmentalPayload {
     /// Return the structure as big endian bytes
     /// ```
-    /// use applib::LoRaWANPayload;
-    /// let payload = LoRaWANPayload { temperature: -2, pressure: 0, humidity: 99, gas_resistance: 1 };
-    /// assert_eq!(&payload.as_be_bytes(), &[0xff, 0xfe, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x63, 0x00, 0x00, 0x00, 0x01]);
+    /// use applib::EnvironmentalPayload;
+    /// let payload = EnvironmentalPayload { temperature: -2, pressure: 0, humidity: 99, gas_resistance: 1 };
+    /// assert_eq!(&payload.to_be_bytes(), &[0xff, 0xfe, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x63, 0x00, 0x00, 0x00, 0x01]);
     /// ```
-    pub fn as_be_bytes(&self) -> [u8; 14] {
+    pub fn to_be_bytes(&self) -> [u8; 14] {
         [
             ((self.temperature as u16 & 0xff00) >> 8) as u8,
             (self.temperature as u16 & 0x00ff) as u8,

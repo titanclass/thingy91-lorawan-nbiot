@@ -10,7 +10,6 @@ bme680 = "0.5.1"
 cortex-m = "0.6.0"
 cortex-m-rt = "0.6.10"
 embedded-hal = { version = "0.2.4", features = [ "unproven" ] }
-lorawan-encoding = { version = "0.6.2", default-features = false, features = [ "default-crypto" ] }
 nrf9160-dk-bsp = { git = "https://github.com/nrf-rs/nrf9160-dk" }
 panic-reset = "0.1.0"
 panic-halt = "0.2.0"
