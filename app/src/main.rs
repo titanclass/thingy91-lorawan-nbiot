@@ -32,6 +32,9 @@ const NET_ID: u32 = 0x13_u32;
 const NWK_SKEY: &'static str = "EE508F76B0492985BFACBACE0B2754C2";
 const APP_SKEY: &'static str = "BA357A0A743BD19BD4509B9667C87658";
 
+// FIXME: Replace with the ICCID of your SIM card so we can attain something unique
+const ICCID: &'static str = "923453256784434561";
+
 // FIXME: Replace with how often you would like environmental telemetry to be sent.
 const SEND_FREQUENCY_MS: u32 = 60 * 60 * 1000; // 1 hour
 
@@ -43,7 +46,7 @@ fn main() -> ! {
 
     // Setup LoRaWAN info
 
-    let dev_eui = "923453256784434561".parse::<u64>().unwrap(); // FIXME: use ICCID returned via modem - "AT+ICCID" ???
+    let dev_eui = ICCID.parse::<u64>().unwrap();
     let dev_addr = nwk_addr(dev_eui, NET_ID);
 
     let nwk_skey = u128::from_str_radix(NWK_SKEY, 16).unwrap();
