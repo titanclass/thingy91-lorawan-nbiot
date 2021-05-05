@@ -16,7 +16,7 @@
             "preLaunchTask": "Cargo Build (debug)",
             "runToMain": true,
             "executable": "./target/thumbv8m.main-none-eabihf/debug/thingy52-lorawan-nbiot",
-            "device": "nRF9160",
+            "device": "nrf9160_xxaa",
             "svdFile": "${workspaceRoot}/.vscode/nrf9160.svd",
         }
     ]

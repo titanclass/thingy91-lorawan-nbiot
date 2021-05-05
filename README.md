@@ -25,6 +25,25 @@ cd app
 cargo size --release
 ```
 
+Flashing
+---
+
+> Note that this program is assuming the Thingy:91 device as a target and expects to find an environmental sensor.
+> Assuming an SWD cable is being used, it is useful to first flash "blinky" to the SWD host device e.g. the
+> nRF9160-DK board. You then have assurance that what is being flashed to the Thingy:91 (unless that too is Blinky!)
+> is your software. These DK boards provide no feedback that a debug session is in place! For convenience, there's a
+> blinky app provided with this project, which just runs in secure mode and so doesn't require an additional SPM as
+> described below).
+
+By default, the program is flashed to memory address 0x0005_0000. A Nordic Secure Partition Manager program is also required
+to be flashed to the device. [Nordic provide one](https://github.com/nrfconnect/sdk-nrf/tree/master/samples/spm) which jumps
+to this address. A built version of it exists in the root folder and is named "spm.hex". This SPM needs to be flashed to the 
+device before flashing/debugging the main program here e.g.:
+
+```
+nrfjprog --program ./spm.hex --sectorerase
+```
+
 Structure
 ---
 
