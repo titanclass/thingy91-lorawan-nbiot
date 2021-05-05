@@ -10,7 +10,7 @@ bme680 = { git = "https://github.com/huntc/bme680.git", branch = "pass-delay" }
 cortex-m = "0.6.0"
 cortex-m-rt = "0.6.10"
 embedded-hal = { version = "0.2.4", features = [ "unproven" ] }
-nrf9160-dk-bsp = { git = "https://github.com/nrf-rs/nrf9160-dk" }
+nrf9160-dk-bsp = { git = "https://github.com/huntc/nrf9160-dk", branch = "upgrade" }
 panic-reset = "0.1.0"
 panic-halt = "0.2.0"
 spin = "0.9.0"

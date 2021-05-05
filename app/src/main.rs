@@ -56,8 +56,8 @@ fn main() -> ! {
 
     // Setup the environmental sensor
 
-    let scl = board.pins.P0_12.degrade();
-    let sda = board.pins.P0_11.degrade();
+    let scl = board.pins.P0_12.into_floating_input().degrade();
+    let sda = board.pins.P0_11.into_floating_input().degrade();
 
     let pins = twim::Pins { scl, sda };
 
