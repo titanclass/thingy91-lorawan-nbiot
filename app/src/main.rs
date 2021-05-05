@@ -44,6 +44,8 @@ fn main() -> ! {
 
     let mut board = bsp::Board::take().unwrap();
 
+    *GLOBAL_UART.lock() = Some(board.cdc_uart);
+
     // Setup LoRaWAN info
 
     let dev_eui = ICCID.parse::<u64>().unwrap();
@@ -59,7 +61,7 @@ fn main() -> ! {
 
     let pins = twim::Pins { scl, sda };
 
-    let i2c = Twim::new(board.TWIM0_NS, pins, twim::Frequency::K400);
+    let i2c = Twim::new(board.TWIM0_NS, pins, twim::Frequency::K100);
 
     let mut delayer = Delay::new(board.SYST);
 
