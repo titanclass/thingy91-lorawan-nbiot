@@ -2,11 +2,11 @@
 authors = ["huntc <huntchr@gmail.com>"]
 edition = "2018"
 readme = "README.md"
-name = "thingy52-lorawan-nbiot"
+name = "thingy91-lorawan-nbiot"
 version = "0.1.0"
 
 [dependencies]
-bme680 = { git = "https://github.com/huntc/bme680.git", branch = "pass-delay" }
+bme680 = "0.6.0"
 cortex-m = "0.6.0"
 cortex-m-rt = "0.6.10"
 embedded-hal = { version = "0.2.4", features = [ "unproven" ] }
@@ -20,6 +20,6 @@ applib = { path = "../applib" }
 [workspace]
 
 [[bin]]
-name = "thingy52-lorawan-nbiot"
+name = "thingy91-lorawan-nbiot"
 test = false
 bench = false
