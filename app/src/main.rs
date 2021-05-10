@@ -61,7 +61,7 @@ fn main() -> ! {
 
     let pins = twim::Pins { scl, sda };
 
-    let i2c = Twim::new(board.TWIM0_NS, pins, twim::Frequency::K100);
+    let i2c = Twim::new(board.TWIM2_NS, pins, twim::Frequency::K400);
 
     let mut delayer = Delay::new(board.SYST);
 
