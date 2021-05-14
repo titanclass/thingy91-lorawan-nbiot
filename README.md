@@ -1,3 +1,5 @@
+\* \* \* Experimental \* \* \*
+
 thingy52-lorawan-nbiot
 ===
 
