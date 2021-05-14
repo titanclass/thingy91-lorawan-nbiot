@@ -1,9 +1,9 @@
 \* \* \* Experimental \* \* \*
 
-thingy52-lorawan-nbiot
+thingy91-lorawan-nbiot
 ===
 
-Provides a pure Rust program for deployment to the nRF Thingy:52 device, which is an nRF9160
+Provides a pure Rust program for deployment to the nRF Thingy:91 device, which is an nRF9160
 and a few sensors.
 
 UDP is then used to convey LoRaWAN packets over a UDP connection.
