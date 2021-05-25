@@ -37,13 +37,14 @@ Flashing
 > blinky app provided with this project, which just runs in secure mode and so doesn't require an additional SPM as
 > described below).
 
-By default, the program is flashed to memory address 0x0005_0000. A Nordic Secure Partition Manager program is also required
+By default, the program is flashed to memory address 0x0004_0000. A Nordic Secure Partition Manager program is also required
 to be flashed to the device. [Nordic provide one](https://github.com/nrfconnect/sdk-nrf/tree/master/samples/spm) which jumps
-to this address. A built version of it exists in the root folder and is named "spm.hex". This SPM needs to be flashed to the 
-device before flashing/debugging the main program here e.g.:
+to this address. The command to build this spm is (from your Nordic/Zephyr installation):
 
 ```
-nrfjprog --program ./spm.hex --sectorerase
+source zephyr/zephyr-env.sh
+west build -b thingy91_nrf9160 nrf/samples/spm --pristine
+west flash
 ```
 
 Structure

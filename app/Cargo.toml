@@ -6,14 +6,13 @@ name = "thingy91-lorawan-nbiot"
 version = "0.1.0"
 
 [dependencies]
-bme680 = "0.6.0"
-cortex-m = "0.6.0"
-cortex-m-rt = "0.6.10"
-embedded-hal = { version = "0.2.4", features = [ "unproven" ] }
-nrf9160-dk-bsp = { git = "https://github.com/huntc/nrf9160-dk", branch = "upgrade" }
+bme680 = "0.6"
+cortex-m = "0.7"
+cortex-m-rt = "0.6"
+embedded-hal = { version = "0.2", features = [ "unproven" ] }
+thingy-91-nrf9160-bsp = { git = "https://github.com/titanclass/thingy-91-nrf9160.git", branch = "master" }
 panic-reset = "0.1.0"
 panic-halt = "0.2.0"
-spin = "0.9.0"
 
 applib = { path = "../applib" }
 

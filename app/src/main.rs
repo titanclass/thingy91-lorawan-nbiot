@@ -1,9 +1,12 @@
 #![no_std]
 #![no_main]
 
-use bsp::hal::{twim, Delay, Twim};
+use bsp::{
+    hal::{pwm, twim, Delay, Twim},
+    prelude::U32Ext,
+};
 
-use embedded_hal::prelude::_embedded_hal_blocking_delay_DelayMs;
+use embedded_hal::{prelude::_embedded_hal_blocking_delay_DelayMs, Pwm};
 // pick a panicking behavior
 #[cfg(debug_assertions)]
 use panic_halt as _;
@@ -16,7 +19,7 @@ use cortex_m_rt::entry;
 
 use bme680::*;
 
-extern crate nrf9160_dk_bsp as bsp;
+extern crate thingy_91_nrf9160_bsp as bsp;
 
 use core::time::Duration;
 
@@ -42,9 +45,7 @@ const SEND_FREQUENCY_MS: u32 = 60 * 60 * 1000; // 1 hour
 fn main() -> ! {
     // Initialize device
 
-    let mut board = bsp::Board::take().unwrap();
-
-    *GLOBAL_UART.lock() = Some(board.cdc_uart);
+    let board = bsp::Board::take().unwrap();
 
     // Setup LoRaWAN info
 
@@ -82,18 +83,21 @@ fn main() -> ! {
 
     let mut fcnt = 0; // frame counter for LoRaWAN
 
+    // Set up our LED
+
+    let rgb_pwm = board.leds.rgb_led_1.pwm;
+    rgb_pwm.set_period(500u32.hz());
+    rgb_pwm.set_duty_on_common(rgb_pwm.get_max_duty());
+
     loop {
         // Show we're doing something
 
-        board.leds.led_1.enable();
+        rgb_pwm.next_step();
+        rgb_pwm.set_duty_on(pwm::Channel::C1, 0);
 
         // Read  data from the environmental sensor
 
         let (data, _) = dev.get_sensor_data(&mut delayer).unwrap();
-        println!("Temperature {}°C", data.temperature_celsius());
-        println!("Pressure {}hPa", data.pressure_hpa());
-        println!("Humidity {}%", data.humidity_percent());
-        println!("Gas Resistence {}Ω", data.gas_resistance_ohm());
 
         // Construct a LoRaWAN packet from the data.
 
@@ -112,25 +116,9 @@ fn main() -> ! {
 
         // All done. Time to sleep.
 
-        board.leds.led_1.disable();
+        rgb_pwm.next_step();
+        rgb_pwm.set_duty_on_common(rgb_pwm.get_max_duty());
 
         delayer.delay_ms(SEND_FREQUENCY_MS); // We can do better by using a periodic timer as it'll take a few seconds to the above
     }
-}
-
-/// A UART we can access from anywhere (with run-time lock checking).
-static GLOBAL_UART: spin::Mutex<Option<bsp::hal::uarte::Uarte<bsp::pac::UARTE0_NS>>> =
-    spin::Mutex::new(None);
-
-#[macro_export]
-macro_rules! println {
-    () => (print!("\n"));
-    ($($arg:tt)*) => {
-        {
-            use core::fmt::Write as _;
-            if let Some(ref mut uart) = *crate::GLOBAL_UART.lock() {
-                let _err = writeln!(*uart, $($arg)*);
-            }
-        }
-    };
 }
