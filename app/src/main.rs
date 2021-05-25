@@ -1,12 +1,26 @@
 #![no_std]
 #![no_main]
 
-use bsp::{
-    hal::{pwm, twim, Delay, Twim},
-    prelude::U32Ext,
-};
+extern crate thingy_91_nrf9160_bsp as bsp;
+extern crate tinyrlibc;
 
+use applib::{data_up_unconfirmed, nwk_addr, EnvironmentalPayload};
+use bme680::{Bme680, I2CAddress, IIRFilterSize, OversamplingSetting, PowerMode, SettingsBuilder};
+use bsp::{
+    hal::{pwm, timer, twim, Delay, Twim},
+    pac::{interrupt, NVIC},
+    prelude::U32Ext,
+    Board,
+};
+use core::{
+    sync::atomic::{AtomicBool, Ordering},
+    time::Duration,
+};
+use cortex_m::{asm, prelude::_embedded_hal_timer_CountDown};
+use cortex_m_rt::entry;
 use embedded_hal::{prelude::_embedded_hal_blocking_delay_DelayMs, Pwm};
+use nrfxlib::udp::UdpSocket;
+
 // pick a panicking behavior
 #[cfg(debug_assertions)]
 use panic_halt as _;
@@ -15,37 +29,94 @@ use panic_halt as _;
 #[cfg(not(debug_assertions))]
 use panic_reset as _;
 
-use cortex_m_rt::entry;
-
-use bme680::*;
-
-extern crate thingy_91_nrf9160_bsp as bsp;
-
-use core::time::Duration;
-
-use applib::*;
-
-// FIXME: Select a Network ID that your LoRaWAN Network Server accepts connections for
+// TODO: Select a Network ID that your LoRaWAN Network Server accepts connections for
 const NET_ID: u32 = 0x13_u32;
 
-// FIXME: Replace these network and app session key string literals with ones that your
+// TODO: Replace these network and app session key string literals with ones that your
 // LoRaWAN Network Server will recognise. Note that we're using ABP, hence the declaration
 // of session keys.
 
 const NWK_SKEY: &'static str = "EE508F76B0492985BFACBACE0B2754C2";
 const APP_SKEY: &'static str = "BA357A0A743BD19BD4509B9667C87658";
 
-// FIXME: Replace with the ICCID of your SIM card so we can attain something unique
+// TODO: Replace with the ICCID of your SIM card so we can attain something unique
 const ICCID: &'static str = "923453256784434561";
 
-// FIXME: Replace with how often you would like environmental telemetry to be sent.
+// TODO: Replace with how often you would like environmental telemetry to be sent.
 const SEND_FREQUENCY_MS: u32 = 60 * 60 * 1000; // 1 hour
+
+// TODO: Replace the host address accordingly.
+const NETWORK_SERVER_HOST: &str = "";
+
+// TODO: Replace the host port accordingly.
+const NETWORK_SERVER_PORT: u16 = 1694u16;
+
+const TIMER_EXPIRED: AtomicBool = AtomicBool::new(false);
+
+// Interrupt handlers for LTE related hardware. Defers straight to the library.
+
+#[interrupt]
+fn EGU1() {
+    nrfxlib::application_irq_handler();
+    cortex_m::asm::sev();
+}
+
+#[interrupt]
+fn EGU2() {
+    nrfxlib::trace_irq_handler();
+    cortex_m::asm::sev();
+}
+
+#[interrupt]
+fn IPC() {
+    nrfxlib::ipc_irq_handler();
+    cortex_m::asm::sev();
+}
+
+// Our timer handler
+
+#[interrupt]
+fn TIMER0() {
+    TIMER_EXPIRED.store(true, Ordering::Relaxed);
+}
+
+// Setup required for the modem
+
+fn init_modem(board: &mut Board) {
+    unsafe {
+        NVIC::unmask(bsp::pac::Interrupt::EGU1);
+        NVIC::unmask(bsp::pac::Interrupt::EGU2);
+        NVIC::unmask(bsp::pac::Interrupt::IPC);
+
+        // Only use top three bits, so shift by up by 8 - 3 = 5 bits
+
+        board.NVIC.set_priority(bsp::pac::Interrupt::EGU2, 4 << 5);
+        board.NVIC.set_priority(bsp::pac::Interrupt::EGU1, 4 << 5);
+        board.NVIC.set_priority(bsp::pac::Interrupt::IPC, 0 << 5);
+
+        // nRF9160 Engineering A Errata - [17] Debug and Trace: LTE modem stops when debugging through SWD interface
+        // https://infocenter.nordicsemi.com/index.jsp?topic=%2Ferrata_nRF9160_EngA%2FERR%2FnRF9160%2FEngineeringA%2Flatest%2Ferr_160.html
+
+        core::ptr::write_volatile(0x4000_5C04 as *mut u32, 0x02);
+    }
+
+    nrfxlib::init().unwrap();
+}
 
 #[entry]
 fn main() -> ! {
     // Initialize device
 
-    let board = bsp::Board::take().unwrap();
+    let mut board = Board::take().unwrap();
+
+    // Initialise our network connectivity
+
+    init_modem(&mut board);
+
+    let udp_socket = UdpSocket::new().unwrap();
+    udp_socket
+        .connect(NETWORK_SERVER_HOST, NETWORK_SERVER_PORT)
+        .unwrap();
 
     // Setup LoRaWAN info
 
@@ -89,36 +160,49 @@ fn main() -> ! {
     rgb_pwm.set_period(500u32.hz());
     rgb_pwm.set_duty_on_common(rgb_pwm.get_max_duty());
 
+    // Setup our timer so we can wake up to do our work periodically
+
+    let mut timer = timer::Timer::periodic(board.TIMER0_NS);
+    timer.enable_interrupt();
+    // timer.start(count); // FIXME
+
     loop {
-        // Show we're doing something
+        if TIMER_EXPIRED.compare_exchange(true, false, Ordering::Relaxed, Ordering::Relaxed)
+            == Ok(true)
+        {
+            // Show we're doing something
 
-        rgb_pwm.next_step();
-        rgb_pwm.set_duty_on(pwm::Channel::C1, 0);
+            rgb_pwm.next_step();
+            rgb_pwm.set_duty_on(pwm::Channel::C1, 0);
 
-        // Read  data from the environmental sensor
+            // Read  data from the environmental sensor
 
-        let (data, _) = dev.get_sensor_data(&mut delayer).unwrap();
+            let (data, _) = dev.get_sensor_data(&mut delayer).unwrap();
 
-        // Construct a LoRaWAN packet from the data.
+            // Construct a LoRaWAN packet from the data.
 
-        let payload = EnvironmentalPayload {
-            temperature: unsafe { (data.temperature_celsius() * 100f32).to_int_unchecked() },
-            pressure: unsafe { (data.pressure_hpa() * 100f32).to_int_unchecked() },
-            humidity: unsafe { (data.humidity_percent() * 1000f32).to_int_unchecked() },
-            gas_resistance: data.gas_resistance_ohm(),
-        };
+            let payload = EnvironmentalPayload {
+                temperature: unsafe { (data.temperature_celsius() * 100f32).to_int_unchecked() },
+                pressure: unsafe { (data.pressure_hpa() * 100f32).to_int_unchecked() },
+                humidity: unsafe { (data.humidity_percent() * 1000f32).to_int_unchecked() },
+                gas_resistance: data.gas_resistance_ohm(),
+            };
 
-        let _payload_bytes = data_up_unconfirmed(dev_addr, fcnt, &payload, nwk_skey, app_skey);
+            let payload_bytes = data_up_unconfirmed(dev_addr, fcnt, &payload, nwk_skey, app_skey);
 
-        // FIXME: Send the data
+            // Send the data. There's nothing we can do about transmissions failing.
+            // Everything is best-effort in IoT.
 
-        fcnt += 1;
+            let _ = udp_socket.write(&payload_bytes);
 
-        // All done. Time to sleep.
+            fcnt += 1;
 
-        rgb_pwm.next_step();
-        rgb_pwm.set_duty_on_common(rgb_pwm.get_max_duty());
+            // All done. Time to sleep.
 
-        delayer.delay_ms(SEND_FREQUENCY_MS); // We can do better by using a periodic timer as it'll take a few seconds to the above
+            rgb_pwm.next_step();
+            rgb_pwm.set_duty_on_common(rgb_pwm.get_max_duty());
+        }
+
+        asm::wfi();
     }
 }
