@@ -7,18 +7,19 @@ extern crate tinyrlibc;
 use applib::{data_up_unconfirmed, nwk_addr, EnvironmentalPayload};
 use bme680::{Bme680, I2CAddress, IIRFilterSize, OversamplingSetting, PowerMode, SettingsBuilder};
 use bsp::{
-    hal::{pwm, timer, twim, Delay, Twim},
+    hal::{clocks, pwm, rtc, twim, Delay, Twim},
     pac::{interrupt, NVIC},
     prelude::U32Ext,
     Board,
 };
 use core::{
+    cell::RefCell,
     sync::atomic::{AtomicBool, Ordering},
     time::Duration,
 };
-use cortex_m::{asm, prelude::_embedded_hal_timer_CountDown};
+use cortex_m::{asm, interrupt::Mutex};
 use cortex_m_rt::entry;
-use embedded_hal::{prelude::_embedded_hal_blocking_delay_DelayMs, Pwm};
+use embedded_hal::Pwm;
 use nrfxlib::udp::UdpSocket;
 
 // pick a panicking behavior
@@ -51,33 +52,41 @@ const NETWORK_SERVER_HOST: &str = "";
 // TODO: Replace the host port accordingly.
 const NETWORK_SERVER_PORT: u16 = 1694u16;
 
-const TIMER_EXPIRED: AtomicBool = AtomicBool::new(false);
-
 // Interrupt handlers for LTE related hardware. Defers straight to the library.
 
 #[interrupt]
 fn EGU1() {
     nrfxlib::application_irq_handler();
-    cortex_m::asm::sev();
+    asm::sev();
 }
 
 #[interrupt]
 fn EGU2() {
     nrfxlib::trace_irq_handler();
-    cortex_m::asm::sev();
+    asm::sev();
 }
 
 #[interrupt]
 fn IPC() {
     nrfxlib::ipc_irq_handler();
-    cortex_m::asm::sev();
+    asm::sev();
 }
 
-// Our timer handler
+static RTC: Mutex<RefCell<Option<rtc::Rtc<bsp::pac::RTC0_NS>>>> = Mutex::new(RefCell::new(None));
+
+static TIMER_EXPIRED: AtomicBool = AtomicBool::new(true); // Starting up assumes an expired timer so we can do some initial work before sleeping
 
 #[interrupt]
-fn TIMER0() {
-    TIMER_EXPIRED.store(true, Ordering::Relaxed);
+fn RTC0() {
+    cortex_m::interrupt::free(|cs| {
+        let rtc = RTC.borrow(cs).borrow();
+        if let Some(rtc) = rtc.as_ref() {
+            rtc.reset_event(rtc::RtcInterrupt::Compare0);
+            rtc.clear_counter();
+
+            TIMER_EXPIRED.store(true, Ordering::Relaxed);
+        }
+    });
 }
 
 // Setup required for the modem
@@ -113,10 +122,10 @@ fn main() -> ! {
 
     init_modem(&mut board);
 
-    let udp_socket = UdpSocket::new().unwrap();
-    udp_socket
-        .connect(NETWORK_SERVER_HOST, NETWORK_SERVER_PORT)
-        .unwrap();
+    // let udp_socket = UdpSocket::new().unwrap();
+    // udp_socket
+    //     .connect(NETWORK_SERVER_HOST, NETWORK_SERVER_PORT)
+    //     .unwrap();
 
     // Setup LoRaWAN info
 
@@ -160,11 +169,24 @@ fn main() -> ! {
     rgb_pwm.set_period(500u32.hz());
     rgb_pwm.set_duty_on_common(rgb_pwm.get_max_duty());
 
+    // Enable the low-frequency-clock which is required by the RTC
+    clocks::Clocks::new(board.CLOCK_NS).start_lfclk();
+
     // Setup our timer so we can wake up to do our work periodically
 
-    let mut timer = timer::Timer::periodic(board.TIMER0_NS);
-    timer.enable_interrupt();
-    // timer.start(count); // FIXME
+    let prescaler = 0xFFF; // Max resolution of 125ms per tick
+    let mut rtc = rtc::Rtc::new(board.RTC0_NS, prescaler).unwrap();
+    rtc.set_compare(
+        rtc::RtcCompareReg::Compare0,
+        SEND_FREQUENCY_MS / (1000 / (clocks::LFCLK_FREQ / (prescaler + 1))),
+    )
+    .unwrap();
+    rtc.enable_event(rtc::RtcInterrupt::Compare0);
+    rtc.enable_interrupt(rtc::RtcInterrupt::Compare0, Some(&mut board.NVIC));
+    rtc.enable_counter();
+    cortex_m::interrupt::free(|cs| {
+        RTC.borrow(cs).replace(Some(rtc));
+    });
 
     loop {
         if TIMER_EXPIRED.compare_exchange(true, false, Ordering::Relaxed, Ordering::Relaxed)
@@ -193,7 +215,7 @@ fn main() -> ! {
             // Send the data. There's nothing we can do about transmissions failing.
             // Everything is best-effort in IoT.
 
-            let _ = udp_socket.write(&payload_bytes);
+            // let _ = udp_socket.write(&payload_bytes);
 
             fcnt += 1;
 
@@ -203,6 +225,6 @@ fn main() -> ! {
             rgb_pwm.set_duty_on_common(rgb_pwm.get_max_duty());
         }
 
-        asm::wfi();
+        asm::wfe();
     }
 }
