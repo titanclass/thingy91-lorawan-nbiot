@@ -47,7 +47,7 @@ const ICCID: &'static str = "923453256784434561";
 const SEND_FREQUENCY_MS: u32 = 60 * 60 * 1000; // 1 hour
 
 // TODO: Replace the host address accordingly.
-const NETWORK_SERVER_HOST: &str = "";
+const NETWORK_SERVER_HOST: &str = "127.0.0.1";
 
 // TODO: Replace the host port accordingly.
 const NETWORK_SERVER_PORT: u16 = 1694u16;
@@ -122,10 +122,12 @@ fn main() -> ! {
 
     init_modem(&mut board);
 
-    // let udp_socket = UdpSocket::new().unwrap();
-    // udp_socket
-    //     .connect(NETWORK_SERVER_HOST, NETWORK_SERVER_PORT)
-    //     .unwrap();
+    nrfxlib::modem::on().unwrap();
+
+    let udp_socket = UdpSocket::new().unwrap();
+    udp_socket
+        .connect(NETWORK_SERVER_HOST, NETWORK_SERVER_PORT)
+        .unwrap();
 
     // Setup LoRaWAN info
 
@@ -215,7 +217,7 @@ fn main() -> ! {
             // Send the data. There's nothing we can do about transmissions failing.
             // Everything is best-effort in IoT.
 
-            // let _ = udp_socket.write(&payload_bytes);
+            let _ = udp_socket.write(&payload_bytes);
 
             fcnt += 1;
 
