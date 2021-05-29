@@ -83,10 +83,10 @@ fn RTC0() {
         if let Some(rtc) = rtc.as_ref() {
             rtc.reset_event(rtc::RtcInterrupt::Compare0);
             rtc.clear_counter();
-
-            TIMER_EXPIRED.store(true, Ordering::Relaxed);
         }
     });
+
+    TIMER_EXPIRED.store(true, Ordering::Relaxed);
 }
 
 // Setup required for the modem
