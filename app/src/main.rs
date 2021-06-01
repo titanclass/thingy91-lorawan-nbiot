@@ -122,7 +122,11 @@ fn main() -> ! {
 
     init_modem(&mut board);
 
+    nrfxlib::modem::set_system_mode(nrfxlib::modem::SystemMode::NbIot).unwrap();
+
     nrfxlib::modem::on().unwrap();
+
+    nrfxlib::modem::wait_for_lte().unwrap();
 
     let udp_socket = UdpSocket::new().unwrap();
     udp_socket
