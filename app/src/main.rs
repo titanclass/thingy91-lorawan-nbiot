@@ -99,8 +99,8 @@ fn init_modem(board: &mut Board) {
 
         // Only use top three bits, so shift by up by 8 - 3 = 5 bits
 
-        board.NVIC.set_priority(bsp::pac::Interrupt::EGU2, 4 << 5);
         board.NVIC.set_priority(bsp::pac::Interrupt::EGU1, 4 << 5);
+        board.NVIC.set_priority(bsp::pac::Interrupt::EGU2, 4 << 5);
         board.NVIC.set_priority(bsp::pac::Interrupt::IPC, 0 << 5);
 
         // nRF9160 Engineering A Errata - [17] Debug and Trace: LTE modem stops when debugging through SWD interface
