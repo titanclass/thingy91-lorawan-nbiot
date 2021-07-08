@@ -39,7 +39,7 @@ Flashing
 
 By default, the program is flashed to memory address 0x0004_0000. A Nordic Secure Partition Manager program is also required
 to be flashed to the device. [Nordic provide one](https://github.com/nrfconnect/sdk-nrf/tree/master/samples/spm) which jumps
-to this address. The command to build this spm is (from your Nordic/Zephyr installation):
+to this address. This project provides an `spm` for convenience. However, to build the spm is (from your Nordic/Zephyr installation):
 
 ```
 source zephyr/zephyr-env.sh
