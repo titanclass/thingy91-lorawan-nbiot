@@ -13,10 +13,12 @@
             "type": "process",
             "command": "cargo",
             "args": [
-                "build"
+                "build",
+                "--target",
+                "thumbv8m.main-none-eabihf"
             ],
             "options": {
-                "cwd": "app"
+                "cwd": "nrf-app"
             },
             "problemMatcher": [
                 "$rustc"
@@ -25,35 +27,6 @@
                 "kind": "build",
                 "isDefault": true
             }
-        },
-        {
-            "label": "Cargo Build (release)",
-            "type": "process",
-            "command": "cargo",
-            "args": [
-                "build",
-                "--release"
-            ],
-            "options": {
-                "cwd": "app"
-            },
-            "problemMatcher": [
-                "$rustc"
-            ],
-            "group": "build"
-        },
-        {
-            "label": "Cargo Clean",
-            "type": "process",
-            "command": "cargo",
-            "args": [
-                "clean"
-            ],
-            "options": {
-                "cwd": "app"
-            },
-            "problemMatcher": [],
-            "group": "build"
-        },
+        }
     ]
 }

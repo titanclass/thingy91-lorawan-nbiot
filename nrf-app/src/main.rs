@@ -4,7 +4,7 @@
 extern crate thingy_91_nrf9160_bsp as bsp;
 extern crate tinyrlibc;
 
-use applib::{data_up_unconfirmed, nwk_addr, EnvironmentalPayload};
+use app::{data_up_unconfirmed, nwk_addr, EnvironmentalPayload};
 use bme680::{Bme680, I2CAddress, IIRFilterSize, OversamplingSetting, PowerMode, SettingsBuilder};
 use bsp::{
     hal::{clocks, pwm, rtc, twim, Delay, Twim},

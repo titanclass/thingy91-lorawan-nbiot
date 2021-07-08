@@ -12,8 +12,8 @@ use lorawan_encoding::keys;
 ///    10 |    13 | Gas Resistence
 ///
 /// ```
-/// use applib::EnvironmentalPayload;
-/// let bytes = applib::data_up_unconfirmed(0, 0, &EnvironmentalPayload { temperature: 0, pressure: 1, humidity: 2, gas_resistance: 3 }, 0_u128, 0_u128);
+/// use app::EnvironmentalPayload;
+/// let bytes = app::data_up_unconfirmed(0, 0, &EnvironmentalPayload { temperature: 0, pressure: 1, humidity: 2, gas_resistance: 3 }, 0_u128, 0_u128);
 /// ```
 pub fn data_up_unconfirmed<'a>(
     dev_addr: u32,
@@ -52,7 +52,7 @@ pub struct EnvironmentalPayload {
 impl EnvironmentalPayload {
     /// Return the structure as big endian bytes
     /// ```
-    /// use applib::EnvironmentalPayload;
+    /// use app::EnvironmentalPayload;
     /// let payload = EnvironmentalPayload { temperature: -2, pressure: 0, humidity: 99, gas_resistance: 1 };
     /// assert_eq!(&payload.to_be_bytes(), &[0xff, 0xfe, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x63, 0x00, 0x00, 0x00, 0x01]);
     /// ```

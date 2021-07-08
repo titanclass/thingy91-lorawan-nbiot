@@ -1,0 +1,24 @@
+[package]
+authors = ["huntc <huntchr@gmail.com>"]
+edition = "2018"
+readme = "README.md"
+name = "thingy91-lorawan-nbiot"
+version = "0.1.0"
+
+[dependencies]
+bme680 = "0.6"
+cortex-m = "0.7"
+cortex-m-rt = "0.6"
+embedded-hal = { version = "0.2", features = [ "unproven" ] }
+nrfxlib = "0.6"
+thingy-91-nrf9160-bsp = { git = "https://github.com/titanclass/thingy-91-nrf9160.git", branch = "master" }
+panic-reset = "0.1"
+panic-halt = "0.2"
+tinyrlibc = "0.2"
+
+app = { path = "../app" }
+
+[[bin]]
+name = "thingy91-lorawan-nbiot"
+test = false
+bench = false

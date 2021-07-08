@@ -1,12 +1,10 @@
-\* \* \* Experimental \* \* \*
-
 thingy91-lorawan-nbiot
 ===
 
 Provides a pure Rust program for deployment to the nRF Thingy:91 device, which is an nRF9160
 and a few sensors.
 
-UDP is then used to convey LoRaWAN packets over a UDP connection.
+UDP is then used to convey LoRaWAN packets over a UDP connection on a periodic basis.
 
 Development
 ---
@@ -24,10 +22,10 @@ To see the size of a resulting binary,
 
 ```
 cd app
-cargo size --release
+cargo size --release --target thumbv8m.main-none-eabihf
 ```
 
-Flashing
+Flashing the SPM
 ---
 
 > Note that this program is assuming the Thingy:91 device as a target and expects to find an environmental sensor.
@@ -47,12 +45,26 @@ west build -b thingy91_nrf9160 nrf/samples/spm --pristine
 west flash
 ```
 
+Testing the app
+---
+
+```
+cargo test
+```
+
+Running the app
+---
+
+```
+cargo run --target thumbv8m.main-none-eabihf
+```
+
 Structure
 ---
 
-The project has an `applib` sub project to hold general app logic that can be tested off the board.
-This project could also well be factored out into other crates if the need arises. The `app` project
-specifically targets the Thingy:91 device. Note that you need to be within the `app` project
+The project has an `app` sub project to hold general app logic that can be tested off the board.
+This project could also well be factored out into other crates if the need arises. The `nrf-app` project
+specifically targets the Thingy:91 device. Note that you need to be within the `nrf-app` project
 to build it i.e. it isn't able to be part of the workspace given its target.
 
 ## Contribution policy

@@ -3,5 +3,7 @@ rustflags = [
     "-C", "link-arg=-Tlink.x",
 ]
 
+[target.thumbv8m.main-none-eabihf]
+runner = "probe-run --chip nRF9160_xxAA"
+
 [build]
-target = "thumbv8m.main-none-eabihf"
