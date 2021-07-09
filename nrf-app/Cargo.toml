@@ -10,10 +10,17 @@ bme680 = "0.6"
 cortex-m = "0.7"
 cortex-m-rt = "0.6"
 embedded-hal = { version = "0.2", features = [ "unproven" ] }
+embedded-storage = "0.1.0"
+heapless = "0.7.6"
+menu = "0.3.2"
+nrf-hal-common = "0.13"
+nrf9160-hal = "0.13"
 nrfxlib = "0.6"
-thingy-91-nrf9160-bsp = { git = "https://github.com/titanclass/thingy-91-nrf9160.git", branch = "master" }
 panic-reset = "0.1"
 panic-halt = "0.2"
+postcard = "0.7.0"
+serde = { version = "1.0.126", default-features = false }
+thingy-91-nrf9160-bsp = { git = "https://github.com/titanclass/thingy-91-nrf9160.git", branch = "master" }
 tinyrlibc = "0.2"
 
 app = { path = "../app" }

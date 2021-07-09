@@ -15,7 +15,7 @@ use lorawan_encoding::keys;
 /// use app::EnvironmentalPayload;
 /// let bytes = app::data_up_unconfirmed(0, 0, &EnvironmentalPayload { temperature: 0, pressure: 1, humidity: 2, gas_resistance: 3 }, 0_u128, 0_u128);
 /// ```
-pub fn data_up_unconfirmed<'a>(
+pub fn data_up_unconfirmed(
     dev_addr: u32,
     fcnt: u32,
     payload: &EnvironmentalPayload,
@@ -37,7 +37,7 @@ pub fn data_up_unconfirmed<'a>(
         )
         .unwrap();
     let mut bytes = [0_u8; 27];
-    bytes.copy_from_slice(&bytes_ref);
+    bytes.copy_from_slice(bytes_ref);
     bytes
 }
 

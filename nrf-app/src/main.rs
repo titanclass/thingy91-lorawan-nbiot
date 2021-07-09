@@ -7,19 +7,23 @@ extern crate tinyrlibc;
 use app::{data_up_unconfirmed, nwk_addr, EnvironmentalPayload};
 use bme680::{Bme680, I2CAddress, IIRFilterSize, OversamplingSetting, PowerMode, SettingsBuilder};
 use bsp::{
-    hal::{clocks, pwm, rtc, twim, Delay, Twim},
+    hal::{clocks, pwm, rtc, twim, Delay, Timer, Twim},
     pac::{interrupt, NVIC},
     prelude::U32Ext,
     Board,
 };
+use config::Config;
 use core::{
     cell::RefCell,
+    fmt::Write,
     sync::atomic::{AtomicBool, Ordering},
     time::Duration,
 };
 use cortex_m::{asm, interrupt::Mutex};
 use cortex_m_rt::entry;
 use embedded_hal::Pwm;
+use heapless::String;
+use nrf_hal_common::nvmc::Nvmc;
 use nrfxlib::udp::UdpSocket;
 
 // pick a panicking behavior
@@ -30,27 +34,10 @@ use panic_halt as _;
 #[cfg(not(debug_assertions))]
 use panic_reset as _;
 
-// TODO: Select a Network ID that your LoRaWAN Network Server accepts connections for
-const NET_ID: u32 = 0x13_u32;
+use crate::command::Console;
 
-// TODO: Replace these network and app session key string literals with ones that your
-// LoRaWAN Network Server will recognise. Note that we're using ABP, hence the declaration
-// of session keys.
-
-const NWK_SKEY: &'static str = "EE508F76B0492985BFACBACE0B2754C2";
-const APP_SKEY: &'static str = "BA357A0A743BD19BD4509B9667C87658";
-
-// TODO: Replace with the ICCID of your SIM card so we can attain something unique
-const ICCID: &'static str = "923453256784434561";
-
-// TODO: Replace with how often you would like environmental telemetry to be sent.
-const SEND_FREQUENCY_MS: u32 = 60 * 60 * 1000; // 1 hour
-
-// TODO: Replace the host address accordingly.
-const NETWORK_SERVER_HOST: &str = "127.0.0.1";
-
-// TODO: Replace the host port accordingly.
-const NETWORK_SERVER_PORT: u16 = 1694u16;
+pub mod command;
+pub mod config;
 
 // Interrupt handlers for LTE related hardware. Defers straight to the library.
 
@@ -91,7 +78,7 @@ fn RTC0() {
 
 // Setup required for the modem
 
-fn init_modem(board: &mut Board) {
+fn init_modem(nvic: &mut NVIC) {
     unsafe {
         NVIC::unmask(bsp::pac::Interrupt::EGU1);
         NVIC::unmask(bsp::pac::Interrupt::EGU2);
@@ -99,9 +86,9 @@ fn init_modem(board: &mut Board) {
 
         // Only use top three bits, so shift by up by 8 - 3 = 5 bits
 
-        board.NVIC.set_priority(bsp::pac::Interrupt::EGU1, 4 << 5);
-        board.NVIC.set_priority(bsp::pac::Interrupt::EGU2, 4 << 5);
-        board.NVIC.set_priority(bsp::pac::Interrupt::IPC, 0 << 5);
+        nvic.set_priority(bsp::pac::Interrupt::EGU1, 4 << 5);
+        nvic.set_priority(bsp::pac::Interrupt::EGU2, 4 << 5);
+        nvic.set_priority(bsp::pac::Interrupt::IPC, 0 << 5);
 
         // nRF9160 Engineering A Errata - [17] Debug and Trace: LTE modem stops when debugging through SWD interface
         // https://infocenter.nordicsemi.com/index.jsp?topic=%2Ferrata_nRF9160_EngA%2FERR%2FnRF9160%2FEngineeringA%2Flatest%2Ferr_160.html
@@ -112,15 +99,32 @@ fn init_modem(board: &mut Board) {
     nrfxlib::init().unwrap();
 }
 
+// Flash storage that we use for configuration
+extern "C" {
+    #[link_name = "_config"]
+    static mut CONFIG: [u32; 1024];
+}
+
 #[entry]
 fn main() -> ! {
     // Initialize device
 
     let mut board = Board::take().unwrap();
 
+    let mut nvmc = Nvmc::new(board.NVMC_NS, unsafe { &mut CONFIG });
+    let mut config = Config::load(&mut nvmc).ok().unwrap();
+
+    if !config.is_complete() || board.buttons.button_1.is_active() {
+        let mut timer = Timer::new(board.TIMER0_NS);
+        let mut uarte = board.cdc_uart;
+        let console = Console::with(&mut config, &mut nvmc, &mut timer, &mut uarte);
+        command::enter(console);
+        cortex_m::peripheral::SCB::sys_reset();
+    }
+
     // Initialise our network connectivity
 
-    init_modem(&mut board);
+    init_modem(&mut board.NVIC);
 
     nrfxlib::modem::set_system_mode(nrfxlib::modem::SystemMode::NbIot).unwrap();
 
@@ -129,17 +133,27 @@ fn main() -> ! {
     nrfxlib::modem::wait_for_lte().unwrap();
 
     let udp_socket = UdpSocket::new().unwrap();
+    let mut network_server_host: String<15> = String::new();
+    {
+        let ipv4_addr = config.network_server_host.unwrap();
+        write!(
+            &mut network_server_host,
+            "{}.{}.{}.{}",
+            ipv4_addr[0], ipv4_addr[1], ipv4_addr[2], ipv4_addr[3],
+        )
+        .unwrap();
+    }
     udp_socket
-        .connect(NETWORK_SERVER_HOST, NETWORK_SERVER_PORT)
+        .connect(&network_server_host, config.network_server_port)
         .unwrap();
 
     // Setup LoRaWAN info
 
-    let dev_eui = ICCID.parse::<u64>().unwrap();
-    let dev_addr = nwk_addr(dev_eui, NET_ID);
+    let dev_eui = config.iccid.unwrap();
+    let dev_addr = nwk_addr(dev_eui, config.net_id);
 
-    let nwk_skey = u128::from_str_radix(NWK_SKEY, 16).unwrap();
-    let app_skey = u128::from_str_radix(APP_SKEY, 16).unwrap();
+    let nwk_skey = config.nwkskey.unwrap();
+    let app_skey = config.appskey.unwrap();
 
     // Setup the environmental sensor
 
@@ -184,7 +198,7 @@ fn main() -> ! {
     let mut rtc = rtc::Rtc::new(board.RTC0_NS, prescaler).unwrap();
     rtc.set_compare(
         rtc::RtcCompareReg::Compare0,
-        SEND_FREQUENCY_MS / (1000 / (clocks::LFCLK_FREQ / (prescaler + 1))),
+        config.send_frequency_ms / (1000 / (clocks::LFCLK_FREQ / (prescaler + 1))),
     )
     .unwrap();
     rtc.enable_event(rtc::RtcInterrupt::Compare0);
@@ -193,6 +207,13 @@ fn main() -> ! {
     cortex_m::interrupt::free(|cs| {
         RTC.borrow(cs).replace(Some(rtc));
     });
+
+    // Disable the UARTE to save power
+
+    let (uarte, _) = board.cdc_uart.free();
+    uarte.enable.write(|w| w.enable().disabled());
+
+    // Main loop
 
     loop {
         if TIMER_EXPIRED.compare_exchange(true, false, Ordering::Relaxed, Ordering::Relaxed)

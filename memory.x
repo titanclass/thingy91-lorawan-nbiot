@@ -1,9 +1,12 @@
 MEMORY
 {
   /* NOTE 1 K = 1 KiBi = 1024 bytes */
-  FLASH : ORIGIN = 0x00040000, LENGTH = 768K
+  FLASH : ORIGIN = 0x00040000, LENGTH = 764K
+  CONFIG : ORIGIN = ORIGIN(FLASH) + LENGTH(FLASH), LENGTH = 4K /* 4K is the flash page size */
   RAM : ORIGIN = 0x20020000, LENGTH = 128K
 }
+
+_config = ORIGIN(CONFIG);
 
 /* This is where the call stack will be allocated. */
 /* The stack is of the full descending type. */

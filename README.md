@@ -59,6 +59,24 @@ Running the app
 cargo run --target thumbv8m.main-none-eabihf
 ```
 
+Configuring the app
+---
+
+This application uses a special mode so that a user may configure it. We enter this special mode to 
+conserve battery by shutting down the UART when in regular running mode.
+
+To configure the app, you need to connect to the Thingy:91's serial port. You will also need to configure your
+serial port to add carriage returns to line feeds. `minicom` is a utility that easily enables this e.g. if
+the serial port is `/dev/tty.usbmodem143101`:
+
+```
+minicom -D /dev/tty.usbmodem143101
+```
+
+When connected to the serial port, hold down the Thingy:91's button during start up. This will place you into 
+"command mode". At any time, type "help" to see what can be done. Resetting the device exits command mode. Pressing
+the escape also causes the device to exit command mode and reset.
+
 Structure
 ---
 
